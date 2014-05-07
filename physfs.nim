@@ -1,13 +1,16 @@
+import fowltek/pointer_arithm
+export pointer_arithm
+
 when defined(Linux):
   const LibName* = "libphysfs.so.2.0.3"
 else:
   {.error: "Your operating system has not been accounted for in physfs.nim".}
-#*
+#
 #  \file physfs.h
 # 
 #  Main header file for PhysicsFS.
 # 
-#*
+#
 #  \mainpage PhysicsFS
 # 
 #  The latest version of PhysicsFS can be found at:
@@ -235,18 +238,11 @@ type
 # 
 type 
   PHYSFS_uint16* = cushort
-#*
-#  \typedef PHYSFS_sint16
-#  \brief A signed, 16-bit integer type.
-# 
+
 type 
-  PHYSFS_sint16* = cshort
-#*
-#  \typedef PHYSFS_uint32
-#  \brief An unsigned, 32-bit integer type.
-# 
+  PHYSFS_sint16* = cshort ## A signed, 16-bit integer type.
 type 
-  PHYSFS_uint32* = cuint
+  PHYSFS_uint32* = cuint ## An unsigned, 32-bit integer type.
 #*
 #  \typedef PHYSFS_sint32
 #  \brief A signed, 32-bit integer type.
@@ -291,31 +287,31 @@ when not(defined(DOXYGEN_SHOULD_IGNORE_THIS)):
     PHYSFS_COMPILE_TIME_ASSERT(uint64, sizeof(PHYSFS_uint64) == 8)
     PHYSFS_COMPILE_TIME_ASSERT(sint64, sizeof(PHYSFS_sint64) == 8)
 """
-#*
-#  \struct PHYSFS_File
-#  \brief A PhysicsFS file handle.
-# 
-#  You get a pointer to one of these when you open a file for reading,
-#   writing, or appending via PhysicsFS.
-# 
-#  As you can see from the lack of meaningful fields, you should treat this
-#   as opaque data. Don't try to manipulate the file handle, just pass the
-#   pointer you got, unmolested, to various PhysicsFS APIs.
-# 
-#  \sa PHYSFS_openRead
-#  \sa PHYSFS_openWrite
-#  \sa PHYSFS_openAppend
-#  \sa PHYSFS_close
-#  \sa PHYSFS_read
-#  \sa PHYSFS_write
-#  \sa PHYSFS_seek
-#  \sa PHYSFS_tell
-#  \sa PHYSFS_eof
-#  \sa PHYSFS_setBuffer
-#  \sa PHYSFS_flush
-# 
+
 type 
   PHYSFS_File* {.pure, final.} = object 
+    ## \
+    #  A PhysicsFS file handle.
+    # 
+    #  You get a pointer to one of these when you open a file for reading,
+    #   writing, or appending via PhysicsFS.
+    # 
+    #  As you can see from the lack of meaningful fields, you should treat this
+    #   as opaque data. Don't try to manipulate the file handle, just pass the
+    #   pointer you got, unmolested, to various PhysicsFS APIs.
+    # 
+    #  \sa PHYSFS_openRead
+    #  \sa PHYSFS_openWrite
+    #  \sa PHYSFS_openAppend
+    #  \sa PHYSFS_close
+    #  \sa PHYSFS_read
+    #  \sa PHYSFS_write
+    #  \sa PHYSFS_seek
+    #  \sa PHYSFS_tell
+    #  \sa PHYSFS_eof
+    #  \sa PHYSFS_setBuffer
+    #  \sa PHYSFS_flush
+    # 
     opaque: pointer        #*< That's all you get. Don't touch. 
 
 #*
@@ -392,6 +388,16 @@ type
     Realloc*: proc (a2: pointer; a3: PHYSFS_uint64): pointer #*< Reallocate like realloc(). 
     Free*: proc (a2: pointer) #*< Free memory from Malloc or Realloc. 
 
+template wrap_freelist (input,item; body:stmt): stmt {.immediate.} =
+  let list = cast[ptr cstring](input)
+  if not list.isNil:
+    var it = list
+    while(let item = it[]; not item.isNil):
+      body
+      it.inc
+    list.freeList
+
+
 {.push callconv: cdecl, dynlib: libName, importc:"PHYSFS_$1".}
 proc getLinkedVersion*(ver: ptr PHYSFS_Version)
   #*
@@ -441,10 +447,7 @@ proc init*(argv0: cstring): cint
   #  \sa PHYSFS_deinit
   #  \sa PHYSFS_isInit
   # 
-proc init* : cint {.inline.} =
-  # call physfs.init() with argv[0]
-  var cmdLine{.importc.}: cstringArray
-  return physfs.init(cmdLine[0])
+
 proc deinit*(): cint
   #*
   #  \fn int PHYSFS_deinit(void)
@@ -472,35 +475,8 @@ proc deinit*(): cint
   #  \sa PHYSFS_init
   #  \sa PHYSFS_isInit
   # 
-proc supportedArchiveTypes*(): ptr ptr PHYSFS_ArchiveInfo
-  #*
-  #  \fn const PHYSFS_ArchiveInfo **PHYSFS_supportedArchiveTypes(void)
-  #  \brief Get a list of supported archive types.
-  # 
-  #  Get a list of archive types supported by this implementation of PhysicFS.
-  #   These are the file formats usable for search path entries. This is for
-  #   informational purposes only. Note that the extension listed is merely
-  #   convention: if we list "ZIP", you can open a PkZip-compatible archive
-  #   with an extension of "XYZ", if you like.
-  # 
-  #  The returned value is an array of pointers to PHYSFS_ArchiveInfo structures,
-  #   with a NULL entry to signify the end of the list:
-  # 
-  #  \code
-  #  PHYSFS_ArchiveInfo **i;
-  # 
-  #  for (i = PHYSFS_supportedArchiveTypes(); *i != NULL; i++)
-  #  {
-  #      printf("Supported archive: [%s], which is [%s].\n",
-  #               (*i)->extension, (*i)->description);
-  #  }
-  #  \endcode
-  # 
-  #  The return values are pointers to static internal memory, and should
-  #   be considered READ ONLY, and never freed.
-  # 
-  #    \return READ ONLY Null-terminated array of READ ONLY structures.
-  # 
+
+
 proc freeList*(listVar: pointer)
   #*
   #  \fn void PHYSFS_freeList(void *listVar)
@@ -579,84 +555,33 @@ proc permitSymbolicLinks*(allow: cint)
   # 
   #  \sa PHYSFS_symbolicLinksPermitted
   # 
-proc getCdRomDirs*(): cstringArray
-  # !!! FIXME: const this? 
-  #*
-  #  \fn char **PHYSFS_getCdRomDirs(void)
-  #  \brief Get an array of paths to available CD-ROM drives.
-  # 
-  #  The dirs returned are platform-dependent ("D:\" on Win32, "/cdrom" or
-  #   whatnot on Unix). Dirs are only returned if there is a disc ready and
-  #   accessible in the drive. So if you've got two drives (D: and E:), and only
-  #   E: has a disc in it, then that's all you get. If the user inserts a disc
-  #   in D: and you call this function again, you get both drives. If, on a
-  #   Unix box, the user unmounts a disc and remounts it elsewhere, the next
-  #   call to this function will reflect that change.
-  # 
-  #  This function refers to "CD-ROM" media, but it really means "inserted disc
-  #   media," such as DVD-ROM, HD-DVD, CDRW, and Blu-Ray discs. It looks for
-  #   filesystems, and as such won't report an audio CD, unless there's a
-  #   mounted filesystem track on it.
-  # 
-  #  The returned value is an array of strings, with a NULL entry to signify the
-  #   end of the list:
-  # 
-  #  \code
-  #  char **cds = PHYSFS_getCdRomDirs();
-  #  char **i;
-  # 
-  #  for (i = cds; *i != NULL; i++)
-  #      printf("cdrom dir [%s] is available.\n", *i);
-  # 
-  #  PHYSFS_freeList(cds);
-  #  \endcode
-  # 
-  #  This call may block while drives spin up. Be forewarned.
-  # 
-  #  When you are done with the returned information, you may dispose of the
-  #   resources by calling PHYSFS_freeList() with the returned pointer.
-  # 
-  #    \return Null-terminated array of null-terminated strings.
-  # 
-  #  \sa PHYSFS_getCdRomDirsCallback
-  # 
-proc getBaseDir*(): cstring
-  #*
-  #  \fn const char *PHYSFS_getBaseDir(void)
-  #  \brief Get the path where the application resides.
+proc getBaseDir*(): cstring 
+  ##  Get the path where the application resides.
   # 
   #  Helper function.
   # 
   #  Get the "base dir". This is the directory where the application was run
-  #   from, which is probably the installation directory, and may or may not
-  #   be the process's current working directory.
+  #  from, which is probably the installation directory, and may or may not
+  #  be the process's current working directory.
   # 
   #  You should probably use the base dir in your search path.
   # 
-  #   \return READ ONLY string of base dir in platform-dependent notation.
-  # 
-  #  \sa PHYSFS_getUserDir
-  # 
 proc getUserDir*(): cstring
-  #*
-  #  \fn const char *PHYSFS_getUserDir(void)
-  #  \brief Get the path where user's home directory resides.
+  ##  Get the path where user's home directory resides.
   # 
   #  Helper function.
   # 
   #  Get the "user dir". This is meant to be a suggestion of where a specific
-  #   user of the system can store files. On Unix, this is her home directory.
-  #   On systems with no concept of multiple home directories (MacOS, win95),
-  #   this will default to something like "C:\mybasedir\users\username"
-  #   where "username" will either be the login name, or "default" if the
-  #   platform doesn't support multiple users, either.
+  #  user of the system can store files. On Unix, this is her home directory.
+  #  On systems with no concept of multiple home directories (MacOS, win95),
+  #  this will default to something like "C:\mybasedir\users\username"
+  #  where "username" will either be the login name, or "default" if the
+  #  platform doesn't support multiple users, either.
   # 
   #  You should probably use the user dir as the basis for your write dir, and
-  #   also put it near the beginning of your search path.
+  #  also put it near the beginning of your search path.
   # 
-  #   \return READ ONLY string of user dir in platform-dependent notation.
-  # 
-  #  \sa PHYSFS_getBaseDir
+  #  Returns a READ ONLY string of user dir in platform-dependent notation.
   # 
 proc getWriteDir*(): cstring
   #*
@@ -723,33 +648,7 @@ proc removeFromSearchPath*(oldDir: cstring): cint
   #  \sa PHYSFS_addToSearchPath
   #  \sa PHYSFS_getSearchPath
   # 
-proc getSearchPath*(): cstringArray
-  #*
-  #  \fn char **PHYSFS_getSearchPath(void)
-  #  \brief Get the current search path.
-  # 
-  #  The default search path is an empty list.
-  # 
-  #  The returned value is an array of strings, with a NULL entry to signify the
-  #   end of the list:
-  # 
-  #  \code
-  #  char **i;
-  # 
-  #  for (i = PHYSFS_getSearchPath(); *i != NULL; i++)
-  #      printf("[%s] is in the search path.\n", *i);
-  #  \endcode
-  # 
-  #  When you are done with the returned information, you may dispose of the
-  #   resources by calling PHYSFS_freeList() with the returned pointer.
-  # 
-  #    \return Null-terminated array of null-terminated strings. NULL if there
-  #             was a problem (read: OUT OF MEMORY).
-  # 
-  #  \sa PHYSFS_getSearchPathCallback
-  #  \sa PHYSFS_addToSearchPath
-  #  \sa PHYSFS_removeFromSearchPath
-  # 
+
 proc setSaneConfig*(organization: cstring; appName: cstring; 
                            archiveExt: cstring; includeCdRoms: cint; 
                            archivesFirst: cint): cint
@@ -890,45 +789,7 @@ proc getRealDir*(filename: cstring): cstring
   #     \return READ ONLY string of element of search path containing the
   #              the file in question. NULL if not found.
   # 
-proc enumerateFiles*(dir: cstring): cstringArray
-  #*
-  #  \fn char **PHYSFS_enumerateFiles(const char *dir)
-  #  \brief Get a file listing of a search path's directory.
-  # 
-  #  Matching directories are interpolated. That is, if "C:\mydir" is in the
-  #   search path and contains a directory "savegames" that contains "x.sav",
-  #   "y.sav", and "z.sav", and there is also a "C:\userdir" in the search path
-  #   that has a "savegames" subdirectory with "w.sav", then the following code:
-  # 
-  #  \code
-  #  char **rc = PHYSFS_enumerateFiles("savegames");
-  #  char **i;
-  # 
-  #  for (i = rc; *i != NULL; i++)
-  #      printf(" * We've got [%s].\n", *i);
-  # 
-  #  PHYSFS_freeList(rc);
-  #  \endcode
-  # 
-  #   \...will print:
-  # 
-  #  \verbatim
-  #  We've got [x.sav].
-  #  We've got [y.sav].
-  #  We've got [z.sav].
-  #  We've got [w.sav].\endverbatim
-  # 
-  #  Feel free to sort the list however you like. We only promise there will
-  #   be no duplicates, but not what order the final list will come back in.
-  # 
-  #  Don't forget to call PHYSFS_freeList() with the return value from this
-  #   function when you are done with it.
-  # 
-  #     \param dir directory in platform-independent notation to enumerate.
-  #    \return Null-terminated array of null-terminated strings.
-  # 
-  #  \sa PHYSFS_enumerateFilesCallback
-  # 
+
 proc exists*(fname: cstring): cint
   #*
   #  \fn int PHYSFS_exists(const char *fname)
@@ -1858,7 +1719,7 @@ proc getMountPoint*(dir: cstring): cstring
   # 
 type 
   PHYSFS_StringCallback* = proc (data: pointer; str: cstring) #\
-    #*
+    ##\
     #  \typedef PHYSFS_StringCallback
     #  \brief Function signature for callbacks that report strings.
     # 
@@ -1885,7 +1746,7 @@ type
 type 
   PHYSFS_EnumFilesCallback* = proc (data: pointer; origdir: cstring; 
                                     fname: cstring) #\
-    #*
+    ##\
     #  \typedef PHYSFS_EnumFilesCallback
     #  \brief Function signature for callbacks that enumerate files.
     # 
@@ -1949,7 +1810,6 @@ proc getCdRomDirsCallback*(c: PHYSFS_StringCallback; d: pointer)
   #  \sa PHYSFS_getCdRomDirs
   # 
 proc getSearchPathCallback*(c: PHYSFS_StringCallback; d: pointer)
-  #*
   #  \fn void PHYSFS_getSearchPathCallback(PHYSFS_StringCallback c, void *d)
   #  \brief Enumerate the search path, using an application-defined callback.
   # 
@@ -1984,7 +1844,6 @@ proc getSearchPathCallback*(c: PHYSFS_StringCallback; d: pointer)
   # 
 proc enumerateFilesCallback*(dir: cstring; c: PHYSFS_EnumFilesCallback; 
                                     d: pointer)
-  #*
   #  \fn void PHYSFS_enumerateFilesCallback(const char *dir, PHYSFS_EnumFilesCallback c, void *d)
   #  \brief Get a file listing of a search path's directory, using an application-defined callback.
   # 
@@ -2024,7 +1883,6 @@ proc enumerateFilesCallback*(dir: cstring; c: PHYSFS_EnumFilesCallback;
   # 
 proc utf8FromUcs4*(src: ptr PHYSFS_uint32; dst: cstring; 
                           len: PHYSFS_uint64)
-  #*
   #  \fn void PHYSFS_utf8FromUcs4(const PHYSFS_uint32 *src, char *dst, PHYSFS_uint64 len)
   #  \brief Convert a UCS-4 string to a UTF-8 string.
   # 
@@ -2042,10 +1900,9 @@ proc utf8FromUcs4*(src: ptr PHYSFS_uint32; dst: cstring;
   #    \param src Null-terminated source string in UCS-4 format.
   #    \param dst Buffer to store converted UTF-8 string.
   #    \param len Size, in bytes, of destination buffer.
-  # 
+
 proc utf8ToUcs4*(src: cstring; dst: ptr PHYSFS_uint32; 
                         len: PHYSFS_uint64)
-  #*
   #  \fn void PHYSFS_utf8ToUcs4(const char *src, PHYSFS_uint32 *dst, PHYSFS_uint64 len)
   #  \brief Convert a UTF-8 string to a UCS-4 string.
   # 
@@ -2066,7 +1923,6 @@ proc utf8ToUcs4*(src: cstring; dst: ptr PHYSFS_uint32;
   # 
 proc utf8FromUcs2*(src: ptr PHYSFS_uint16; dst: cstring; 
                           len: PHYSFS_uint64)
-  #*
   #  \fn void PHYSFS_utf8FromUcs2(const PHYSFS_uint16 *src, char *dst, PHYSFS_uint64 len)
   #  \brief Convert a UCS-2 string to a UTF-8 string.
   # 
@@ -2091,7 +1947,6 @@ proc utf8FromUcs2*(src: ptr PHYSFS_uint16; dst: cstring;
   # 
 proc utf8ToUcs2*(src: cstring; dst: ptr PHYSFS_uint16; 
                         len: PHYSFS_uint64)
-  #*
   #  \fn PHYSFS_utf8ToUcs2(const char *src, PHYSFS_uint16 *dst, PHYSFS_uint64 len)
   #  \brief Convert a UTF-8 string to a UCS-2 string.
   # 
@@ -2139,4 +1994,121 @@ proc utf8FromLatin1*(src: cstring; dst: cstring; len: PHYSFS_uint64)
   #    \param dst Buffer to store converted UTF-8 string.
   #    \param len Size, in bytes, of destination buffer.
   # 
+{.pop.}
 
+
+import os
+proc init* : cint {.inline.} =
+  # call physfs.init() with argv[0]
+  #var cmdLine{.importc.}: cstringArray
+  return physfs.init(paramStr(0))#cmdLine[0].addr)
+
+proc supportedArchiveTypes*(): seq[ptr PHYSFS_ArchiveInfo] =
+  #*
+  #  \fn const PHYSFS_ArchiveInfo **PHYSFS_supportedArchiveTypes(void)
+  #  \brief Get a list of supported archive types.
+  # 
+  #  Get a list of archive types supported by this implementation of PhysicFS.
+  #   These are the file formats usable for search path entries. This is for
+  #   informational purposes only. Note that the extension listed is merely
+  #   convention: if we list "ZIP", you can open a PkZip-compatible archive
+  #   with an extension of "XYZ", if you like.
+  # 
+  #  The returned value is an array of pointers to PHYSFS_ArchiveInfo structures,
+  #   with a NULL entry to signify the end of the list:
+  # 
+  #  \code
+  #  PHYSFS_ArchiveInfo **i;
+  # 
+  #  for (i = PHYSFS_supportedArchiveTypes(); *i != NULL; i++)
+  #  {
+  #      printf("Supported archive: [%s], which is [%s].\n",
+  #               (*i)->extension, (*i)->description);
+  #  }
+  #  \endcode
+  # 
+  #  The return values are pointers to static internal memory, and should
+  #   be considered READ ONLY, and never freed.
+  # 
+  #    \return READ ONLY Null-terminated array of READ ONLY structures.
+  # 
+  proc pvt(): ptr ptr PHYSFS_ArchiveInfo {.importc:"PHYSFS_supportedArchiveTypes",dynlib: libname, cdecl.}
+  result.newSeq 0
+  var fool = pvt()
+  while not fool[].isNil:
+    result.add fool[]
+    inc fool, 1
+
+
+proc getCdRomDirs*(): seq[string] {.inline.} = 
+  ##  Get an array of paths to available CD-ROM drives.
+  # 
+  #  The dirs returned are platform-dependent ("D:\" on Win32, "/cdrom" or
+  #  whatnot on Unix). Dirs are only returned if there is a disc ready and
+  #  accessible in the drive. So if you've got two drives (D: and E:), and only
+  #  E: has a disc in it, then that's all you get. If the user inserts a disc
+  #  in D: and you call this function again, you get both drives. If, on a
+  #  Unix box, the user unmounts a disc and remounts it elsewhere, the next
+  #  call to this function will reflect that change.
+  # 
+  #  This function refers to "CD-ROM" media, but it really means "inserted disc
+  #  media," such as DVD-ROM, HD-DVD, CDRW, and Blu-Ray discs. It looks for
+  #  filesystems, and as such won't report an audio CD, unless there's a
+  #  mounted filesystem track on it.
+  # 
+  #  The returned value is an array of strings.
+  #
+  #  This call may block while drives spin up. Be forewarned.
+  # 
+  proc pvt(): cstringArray {.importc:"PHYSFS_getCdRomDirs", dynlib: libname, cdecl.}
+  result.newseq 0
+  wrap_freelist(pvt(), item):
+    result.add($ item)
+  
+proc getSearchPath*(): seq[string] {.inline.} = 
+  #*
+  #  \fn char **PHYSFS_getSearchPath(void)
+  #  \brief Get the current search path.
+  # 
+  #  The default search path is an empty list.
+  # 
+  #  The returned value is an array of strings, with a NULL entry to signify the
+  #   end of the list:
+  # 
+  #  \code
+  #  char **i;
+  # 
+  #  for (i = PHYSFS_getSearchPath(); *i != NULL; i++)
+  #      printf("[%s] is in the search path.\n", *i);
+  #  \endcode
+  # 
+  #  When you are done with the returned information, you may dispose of the
+  #   resources by calling PHYSFS_freeList() with the returned pointer.
+  # 
+  #    \return Null-terminated array of null-terminated strings. NULL if there
+  #             was a problem (read: OUT OF MEMORY).
+  # 
+  #  \sa PHYSFS_getSearchPathCallback
+  #  \sa PHYSFS_addToSearchPath
+  #  \sa PHYSFS_removeFromSearchPath
+  # 
+  proc PHYSFS_getSearchPath:cstringArray{.importc, dynlib: libname, cdecl.}
+  newSeq result,0
+  wrap_freelist(physfs_getSearchPath(), item):
+    result.add($ item)
+  
+proc enumerateFiles*(dir: cstring): seq[string] {.inline.} =
+  ##  Get a file listing of a search path's directory.
+  # 
+  #  Matching directories are interpolated. That is, if "C:\mydir" is in the
+  #  search path and contains a directory "savegames" that contains "x.sav",
+  #  "y.sav", and "z.sav", and there is also a "C:\userdir" in the search path
+  #  that has a "savegames" subdirectory with "w.sav", then the following code:
+  # 
+  #  Feel free to sort the list however you like. We only promise there will
+  #  be no duplicates, but not what order the final list will come back in.
+  # 
+  proc PHYSFS_enumerateFiles(dir:cstring):cstringArray{.importc,dynlib: libname, cdecl.}
+  newseq result,0
+  wrap_freelist(physfs_enumerateFiles(dir), item):
+    result.add($ item)
